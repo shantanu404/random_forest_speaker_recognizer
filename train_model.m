@@ -1,6 +1,5 @@
 close all;
 clear;
-clc;
 
 %% Reading audio
 base_path = "D:\Labs\EEE4702\database";
@@ -12,48 +11,44 @@ anika_files = get_files(fullfile(base_path, "audio_anika"));
 nowshin_audio = get_audio(nowshin_files, Fs);
 anika_audio = get_audio(anika_files, Fs);
 
-nowshin_mfcc = mfcc(nowshin_audio, Fs);
-anika_mfcc = mfcc(anika_audio, Fs);
-
-%% Taking two samples of each mfcc and plot them
-rnd = randsample(1:20, 2);
-
-% For nowshin
-for i = 1:2
-    subplot(4, 2, 2*(i-1) + 1);
-    plot(nowshin_audio(:, rnd(i)));
-    title(['Nowshin Sample #' num2str(rnd(i)) ' Audio']);
-    
-    subplot(4, 2, 2*(i-1) + 2);
-    imagesc(nowshin_mfcc(:, :, rnd(i)))
-    title(['Nowshin Sample #' num2str(rnd(i)) ' MFCC']);
-end
-
-% For anika
-for i = 1:2
-    subplot(4, 2, 2*(i-1) + 1 + 4);
-    plot(anika_audio(:, rnd(i)));
-    title(['Anika Sample #' num2str(rnd(i)) ' Audio']);
-    
-    subplot(4, 2, 2*(i-1) + 2 + 4);
-    imagesc(anika_mfcc(:, :, rnd(i)))
-    title(['Anika Sample #' num2str(rnd(i)) ' MFCC']);
-end
-
-%% Use Ensemble Classifier to classify who is the speaker
-X = [reshape(nowshin_mfcc, 498 * 14, 20) ...
-     reshape(anika_mfcc, 498 * 14, 20)];
+X = [nowshin_audio anika_audio];
 Y = [zeros(1, 20) ones(1, 20)];
 
-% Train Random Forest
-model = TreeBagger(30, X', Y', 'Method', 'classification');
+%% Train Test split
+cv = cvpartition(size(X, 2), "HoldOut", 0.2);
 
-% Predict with the trained model
-[~, scores] = predict(model, X');
+Xtrain = X(:, ~cv.test);
+Ytrain = Y(:, ~cv.test);
+Xtest = X(:, cv.test);
+Ytest = Y(:, cv.test);
 
-% Display the scores
-disp('Confidence Scores:');
-disp(scores);
+%% Extract Audio Features
+features = get_audio_feature(Xtrain, Fs);
 
-%% Save the KNN Model
-save('trained_model.mat', 'model');
+%% Train Random forest
+labels = unique(Ytrain);
+model = TreeBagger(100, features', Ytrain', 'Method', 'classification');
+
+%% L2 Norm Error
+good = 0;
+bad = 0;
+for idx = 1:size(Xtest, 2)
+    testing_audio = Xtest(:, idx);
+    ta_feature = get_audio_feature(testing_audio, Fs);
+    og_label = Ytest(idx);
+    [pd_label, confidence] = predict(model, ta_feature');
+    pd_label = pd_label{1} - '0';
+    fprintf("%d predicted to be %d with confidence (%.2f, %.2f)\n", ...
+            og_label, pd_label, confidence(1), confidence(2));
+        
+    if og_label == pd_label
+        good = good + 1;
+    else
+        bad = bad + 1;
+    end
+end
+
+fprintf("Accuracy: %.2f %%\n", (good/(good + bad)) * 100);
+
+%% Save the random forest model
+% save('trained_model.mat', 'model');

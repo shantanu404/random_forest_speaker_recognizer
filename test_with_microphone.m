@@ -3,11 +3,11 @@ clear;
 clc;
 
 % Parameters
-fs = 16000; % Sampling rate (adjust as needed)
+Fs = 16000; % Sampling rate (adjust as needed)
 recordingDuration = 5; % Duration of the recording in seconds
 
 % Create an audiorecorder object
-recObj = audiorecorder(fs, 16, 1);
+recObj = audiorecorder(Fs, 16, 1);
 
 % Record audio
 disp('Start speaking.');
@@ -18,22 +18,21 @@ disp('End of Recording.');
 audioData = getaudiodata(recObj);
 
 % Denoise and normalise
-maxlen = fs * 5;
+maxlen = Fs * 5;
 denoised = wdenoise(audioData, 10);
 normalized = denoised / max(abs(denoised));
 padded = padarray(normalized, maxlen - length(normalized), 'post');
 
 % Extract MFCC features
-mfccData = mfcc(padded, fs);
+features = get_audio_feature(padded, Fs);
 
-% Reshape the data for KNN prediction
-[numFrames, numCoefficients] = size(mfccData);
-dataForPrediction = reshape(mfccData', [1, numCoefficients * numFrames]);
+% Transpose for TreeBag prediction
+dataForPrediction = features';
 
-% Load the saved KNN model
+% Load the saved TreeBag model
 model = load('trained_model.mat').model;
 
-% Make predictions using the loaded KNN model
+% Make predictions using the loaded TreeBag model
 [predictedLabel, confidence] = predict(model, dataForPrediction);
 
 % Display the results
@@ -42,7 +41,7 @@ disp(['Model predicted Speaker: ', predictedLabel{1}]);
 disp(['Model confidence: ', num2str(max(confidence))]);
 
 % Check if the prediction is a "stranger"
-if max(confidence) < 0.9
+if max(confidence) < 0.8
     disp('Low confidence. This maybe a stranger.');
 else
     figure;
