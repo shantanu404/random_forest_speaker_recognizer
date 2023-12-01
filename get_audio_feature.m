@@ -12,6 +12,6 @@ features = extract(afe, audio);
 [n_frames, n_features, n_samples] = size(features);
 
 % Take median of every frame and normalize the features
-features = reshape(features, [n_frames * n_features n_samples]);
 features = (features - mean(features, 1));
 features = features ./std(features,[],1);
+features = reshape(features, [n_frames * n_features n_samples]);

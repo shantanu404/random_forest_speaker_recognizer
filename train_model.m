@@ -27,9 +27,9 @@ features = get_audio_feature(Xtrain, Fs);
 
 %% Train Random forest
 labels = unique(Ytrain);
-model = TreeBagger(100, features', Ytrain', 'Method', 'classification');
+model = TreeBagger(30, features', Ytrain', 'Method', 'classification');
 
-%% L2 Norm Error
+%% Testing
 good = 0;
 bad = 0;
 for idx = 1:size(Xtest, 2)
